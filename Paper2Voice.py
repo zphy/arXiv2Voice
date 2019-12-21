@@ -51,11 +51,13 @@ tar.close()
 
 # extract .tex file
 fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
+fn_list.sort()
 print(fn_list)
-if len(fn_list)>1:
-    fn0 = [f for f in fn_list if f=='main.tex']
-else:
-    fn0 = fn_list[0][:-4]
+#if len(fn_list)>1:
+#    fn0 = [f for f in fn_list if f=='main.tex' or f=='paper.tex' or f=='maintext.tex'][0][:-4]
+#else:
+#    fn0 = fn_list[0][:-4]
+fn0 = fn_list[0][:-4] # arxiv processes smallest file first
 fn = arxiv_id+'/'+fn0  
 # convert file to text, strip formating and delete reference section
 print('Processing file: '+fn)
