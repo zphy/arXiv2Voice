@@ -53,14 +53,30 @@ tar.close()
 fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
 fn_list.sort()
 print(fn_list)
-#if len(fn_list)>1:
-#    fn0 = [f for f in fn_list if f=='main.tex' or f=='paper.tex' or f=='maintext.tex'][0][:-4]
-#else:
-#    fn0 = fn_list[0][:-4]
-fn0 = fn_list[0][:-4] # arxiv processes smallest file first
+if len(fn_list)>1:
+    fn0 = [f for f in fn_list if f=='main.tex' or f=='_main.tex' or f=='paper.tex' or f=='maintext.tex' or f=='iclr2018_conference.tex'][0][:-4]
+else:
+    fn0 = fn_list[0][:-4]
+#fn0 = fn_list[0][:-4] # arxiv processes smallest file first
 fn = arxiv_id+'/'+fn0  
 # convert file to text, strip formating and delete reference section
 print('Processing file: '+fn)
+# replace \input lines with actual file
+with open(fn+'.tex','r+') as f:
+    text = f.readlines()
+    text = ''.join(text)
+    inputs = re.findall("\\\\input\{.+\}",text)
+    for i in range(len(inputs)):
+        with open(arxiv_id+'/'+inputs[i][7:-1]+'.tex','r') as f1:
+            text1 = ''.join(f1.readlines())
+            text = text.replace(inputs[i],text1)
+    text = re.sub(r"\\citet\{.+\}","",text)
+    text = re.sub(r"\\citep\{.+\}","",text)
+    text = re.sub(r"\\cite\{.+\}","",text)
+    # couldn't find a systematic fix for this easily
+    text = text.replace("\\newcommand\\AND{\n    \\end{tabular}\\hfil\\linebreak[4]\\hfil\n    \\begin{tabular}[t]{c}\\ignorespaces\n}","")
+with open(fn+'.tex','w') as f:
+    f.writelines(text)
 os.system('latex2rtf '+fn+'.tex')
 with open(fn+'.rtf','r') as f:
     text = f.readlines()
