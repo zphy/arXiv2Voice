@@ -35,7 +35,7 @@ from striprtf.striprtf import rtf_to_text
 import urllib.request as request
 
 # latex version
-arxiv_id = str(sys.argv[1]) # zeroth argument is the current filename
+arxiv_id = str(sys.argv[1])# # zeroth argument is the current filename
 #fn = str(sys.argv[1][:-4])
 
 # download files
@@ -54,7 +54,12 @@ fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
 fn_list.sort()
 print(fn_list)
 if len(fn_list)>1:
-    fn0 = [f for f in fn_list if f=='main.tex' or f=='_main.tex' or f=='paper.tex' or f=='maintext.tex' or f=='iclr2018_conference.tex'][0][:-4]
+    fn0l = [f for f in fn_list if f=='main.tex' or f=='_main.tex' or f=='paper.tex' or f=='maintext.tex' or f=='iclr2018_conference.tex' or f=='ms.tex' or f=='emnlp15.tex']
+    print(fn0l)
+    if fn0l:
+        fn0 = fn0l[0][:-4]
+    else:
+        fn0 = fn_list[0][:-4]
 else:
     fn0 = fn_list[0][:-4]
 #fn0 = fn_list[0][:-4] # arxiv processes smallest file first
@@ -64,15 +69,19 @@ print('Processing file: '+fn)
 # replace \input lines with actual file
 with open(fn+'.tex','r+') as f:
     text = f.readlines()
-    text = ''.join(text)
+    text = ' '.join(text)
+    text = re.sub(r"%\\","%",text) # temporarily solution for commented \input lines
+    #print(text)
     inputs = re.findall("\\\\input\{.+\}",text)
+    #print(inputs)
     for i in range(len(inputs)):
+        inputs[i] = inputs[i].replace('.tex','')
         with open(arxiv_id+'/'+inputs[i][7:-1]+'.tex','r') as f1:
             text1 = ''.join(f1.readlines())
             text = text.replace(inputs[i],text1)
     text = re.sub(r"\\citet\{.+\}","",text)
     text = re.sub(r"\\citep\{.+\}","",text)
-    text = re.sub(r"\\cite\{.+\}","",text)
+    #text = re.sub(r"\\cite\{.+\}","",text)
     # couldn't find a systematic fix for this easily
     text = text.replace("\\newcommand\\AND{\n    \\end{tabular}\\hfil\\linebreak[4]\\hfil\n    \\begin{tabular}[t]{c}\\ignorespaces\n}","")
 with open(fn+'.tex','w') as f:
@@ -80,7 +89,8 @@ with open(fn+'.tex','w') as f:
 os.system('latex2rtf '+fn+'.tex')
 with open(fn+'.rtf','r') as f:
     text = f.readlines()
-    text = rtf_to_text(''.join(text))
+    text = rtf_to_text(' '.join(text))
+    #print(text)
     text.replace('\n','').replace('\t','').replace('\xa0','')
     text = re.sub(r'\[.*\]','',text)
     ind = text.find('noop')
