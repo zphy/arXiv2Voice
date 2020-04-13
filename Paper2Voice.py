@@ -30,13 +30,31 @@ Usage example: "python Paper2Voice.py main.tex"
 #   text = text
 #print(text)
 
-import re, os, sys, tarfile, shutil
+import re, os, sys, tarfile, shutil, getopt
 from striprtf.striprtf import rtf_to_text
 import urllib.request as request
 
 # latex version
-arxiv_id = str(sys.argv[1])# # zeroth argument is the current filename
+arxiv_id = str(sys.argv[1]) # zeroth argument is the current filename
 #fn = str(sys.argv[1][:-4])
+
+# default options
+rate = 200
+
+# get options
+try:
+    opts, args = getopt.getopt(sys.argv[2:],"hr:",["rate="])
+except getopt.GetoptError:
+    print('python Paper2Voice.py <arXivID> -r <speech rate>')
+    sys.exit(2)
+
+for opt, arg in opts:
+    if opt == '-h':
+        print('Usage: python Paper2Voice.py <arXivID> -r <speech rate>')
+        print('-r: a reasonable speech rate is 160, default is 200.')
+        sys.exit()
+    elif opt in ("-r", "--rate"):
+        rate = arg
 
 # download files
 print('Loading files from arXiv:'+arxiv_id)
@@ -101,11 +119,10 @@ with open(fn+'.rtf','r') as f:
         f2.write(text)
         
 # convert into audio
-aiffmake='say -v Alex -r 200 -o '+fn+'.aiff -f'+fn+'.txt'
+aiffmake='say -v Alex -r '+rate+' -o '+fn+'.aiff -f'+fn+'.txt'
 mp3make='/usr/local/bin/lame -h '+fn+'.aiff '+fn+'.mp3'
 os.system(aiffmake)
 os.system(mp3make)
 os.rename(fn+'.mp3','output/'+arxiv_id+'.mp3')
 os.remove(arxiv_id+'.tar.gz')
 shutil.rmtree(arxiv_id+'/')
-
