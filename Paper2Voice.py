@@ -59,13 +59,18 @@ for opt, arg in opts:
 # download files
 print('Loading files from arXiv:'+arxiv_id)
 url = 'https://arxiv.org/e-print/'+arxiv_id
+arxiv_id = arxiv_id.split('/')[-1] # only include last number
 print(os.getcwd()+'/'+arxiv_id+'.tar.gz')
-request.urlretrieve(url, os.getcwd()+'/'+arxiv_id+'.tar.gz')
+filename, headers = request.urlretrieve(url, os.getcwd()+'/'+arxiv_id+'.tar.gz')
 
 # extract files
-tar = tarfile.open(arxiv_id+'.tar.gz')
-tar.extractall(arxiv_id)
-tar.close()
+try:
+    tar = tarfile.open(arxiv_id+'.tar.gz')
+    tar.extractall(arxiv_id)
+    tar.close()
+except: # not tar.gz format, try .tex
+    os.mkdir(arxiv_id)
+    os.rename(arxiv_id+'.tar.gz',arxiv_id+'/main.tex')
 
 # extract .tex file
 fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
