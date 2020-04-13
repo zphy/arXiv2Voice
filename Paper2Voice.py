@@ -75,8 +75,8 @@ with open(fn+'.tex','r+') as f:
     inputs = re.findall("\\\\input\{.+\}",text)
     #print(inputs)
     for i in range(len(inputs)):
-        inputs[i] = inputs[i].replace('.tex','')
-        with open(arxiv_id+'/'+inputs[i][7:-1]+'.tex','r') as f1:
+        #inputs[i] = inputs[i].replace('.tex','')
+        with open(arxiv_id+'/'+inputs[i][7:-1],'r') as f1:
             text1 = ''.join(f1.readlines())
             text = text.replace(inputs[i],text1)
     text = re.sub(r"\\citet\{.+\}","",text)
