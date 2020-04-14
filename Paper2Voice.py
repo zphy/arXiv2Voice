@@ -39,6 +39,10 @@ import gzip
 arxiv_id = str(sys.argv[1]) # zeroth argument is the current filename
 #fn = str(sys.argv[1][:-4])
 
+# add folder for outputs
+if not os.path.isdir('output'):
+    os.mkdir('output')
+
 # default options
 rate = '200'
 
@@ -74,7 +78,7 @@ except: # not tar.gz format, likely due to it being a single file, try .gz
     filetype = 1
     os.rename(arxiv_id+'.tar.gz',arxiv_id+'.gz')
     f = gzip.open(arxiv_id+'.gz', 'rb')
-    file_content = f.read().decode("utf-8")
+    file_content = f.read().decode("cp437")
     file_content = file_content[file_content.find('documentclass')-1:]
     f.close()
     os.mkdir(arxiv_id)
