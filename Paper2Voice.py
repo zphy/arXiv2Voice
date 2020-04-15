@@ -91,7 +91,7 @@ fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
 fn_list.sort()
 print(fn_list)
 if len(fn_list)>1:
-    fn0l = [f for f in fn_list if f=='main.tex' or f=='_main.tex' or f=='paper.tex' or f=='maintext.tex' or f=='iclr2018_conference.tex' or f=='ms.tex' or f=='emnlp15.tex']
+    fn0l = [f for f in fn_list if f=='main.tex' or f=='_main.tex' or f=='paper.tex' or f=='maintext.tex' or f=='iclr2018_conference.tex' or f=='ms.tex' or f=='emnlp15.tex' or f=='tutorial.tex']
     print(fn0l)
     if fn0l:
         fn0 = fn0l[0][:-4]
@@ -104,7 +104,7 @@ fn = arxiv_id+'/'+fn0
 # convert file to text, strip formating and delete reference section
 print('Processing file: '+fn)
 # replace \input lines with actual file
-with open(fn+'.tex','r+') as f:
+with open(fn+'.tex','r+',encoding="cp437") as f:
     text = f.readlines()
     text = ' '.join(text)
     text = re.sub(r"%\\","%",text) # temporarily solution for commented \input lines
