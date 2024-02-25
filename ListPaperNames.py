@@ -10,6 +10,9 @@ import os
 file_names = sorted(os.listdir('output/'))
 
 for file_name in file_names:
+  if file_name.count('.') <= 1:
+    print('Old file name format, skipping...')
+    continue
   if file_name[-4:] == '.mp3':
     print(file_name[:-4])
     with request.urlopen('https://arxiv.org/abs/'+file_name[:-4]) as response:

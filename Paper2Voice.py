@@ -74,7 +74,6 @@ def main():
         except:
             raise TypeError('File type from arXiv not supported! Likely direct pdf submission!')
         
-
     # extract main .tex file
     fn_list = [f for f in os.listdir(arxiv_id+'/') if f[-4:]=='.tex']
     fn_list.sort()
@@ -107,6 +106,7 @@ def main():
         text = f.readlines()
         text = ' '.join(text)
         text = re.sub(r"%\\","%",text) # temporarily solution for commented \input lines
+        text = re.sub(r"% \\","%",text) # commented input lines with a space
         #print(text)
     #    inputs = re.findall("\\\\subfile\{.+\}",text)
     #    #print(inputs)
@@ -118,9 +118,21 @@ def main():
     #        with open(fninput,'r') as f1:
     #            text1 = ''.join(f1.readlines())
     #            text = text.replace(inputs[i],text1)
+
+        figure_blocks = re.findall("\\\\begin\{figure\}([\S\s]*?)\\\\end\{figure\}", text)#re.findall("\\\\begin\{figure\}.+\\\\end\{figure\}", text)
+
+        for cFig in range(len(figure_blocks)):
+            text = text.replace(figure_blocks[cFig], '')
+        print(len(figure_blocks))
+        figure_blocks = re.findall("\\\\begin\{figure\*\}([\S\s]*?)\\\\end\{figure\*\}", text)
+        for cFig in range(len(figure_blocks)):
+            text = text.replace(figure_blocks[cFig], '')
+
         inputs = re.findall("\\\\input\{.+\}",text)
         #print(inputs)
         for i in range(len(inputs)):
+            if re.search('tikz',inputs[i]):
+                continue
             if not (re.search('bbl',inputs[i]) or re.search('tex',inputs[i])):  # make format uniform
                 fninput = arxiv_id+'/'+inputs[i][7:-1]+'.tex'
             else:
@@ -142,6 +154,8 @@ def main():
         inputs = re.findall("\\\\input\{.+\}",text)
         #print(inputs)
         for i in range(len(inputs)):
+            if re.search('tikz',inputs[i]):
+                continue
             if not (re.search('bbl',inputs[i]) or re.search('tex',inputs[i])):  # make format uniform
                 fninput = arxiv_id+'/'+inputs[i][7:-1]+'.tex'
             else:
@@ -152,7 +166,6 @@ def main():
         text = re.sub(r"\\citet\{.+?\}","",text)
         text = re.sub(r"\\citep\{.+?\}","",text)
         text = re.sub(r"\\cite\{.+?\}","",text)
-        #print(text)
         # replace all figures by just their captions
         #figblock = re.findall("\\begin\{figure\}.+\\end\{figure\}",text)
         # couldn't find a systematic fix for this easily
