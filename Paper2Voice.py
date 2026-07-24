@@ -45,6 +45,55 @@ def write_tex(path, text):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(text)
 
+def _match_brace_group(text, open_pos):
+    """Return (content, end_index) for the {...} group starting at open_pos.
+
+    Captions routinely contain nested braces (math like $\\{a,b\\}$), so a
+    regex stopping at the first '}' truncates them mid-sentence.
+    """
+    depth = 0
+    i = open_pos
+    while i < len(text):
+        c = text[i]
+        if c == '\\':          # skip escaped char, e.g. \{ or \}
+            i += 2
+            continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return text[open_pos+1:i], i+1
+        i += 1
+    return None, len(text)
+
+def _extract_caption(block):
+    """Pull the caption text out of a float, or None if it has none."""
+    m = re.search(r"\\caption\s*(\[[^\]]*\])?\s*\{", block)
+    if not m:
+        return None
+    content, _ = _match_brace_group(block, m.end()-1)
+    return content
+
+def strip_tables(text):
+    """Replace table floats with their caption text.
+
+    Figures are already dropped, but table floats were left in, so their
+    tabular bodies reached `say` and were read aloud as pipe characters,
+    coordinates and colour-macro names. Keeping just the caption preserves
+    the fact that a table exists, and what it shows, without the grid.
+    """
+    for env in ('table', 'table*'):
+        pattern = r"\\begin\{"+re.escape(env)+r"\}[\s\S]*?\\end\{"+re.escape(env)+r"\}"
+        while True:
+            m = re.search(pattern, text)
+            if not m:
+                break
+            caption = _extract_caption(m.group(0))
+            replacement = ' '+caption.strip()+' ' if caption else ' '
+            text = text[:m.start()] + replacement + text[m.end():]
+    return text
+
 def ensure_utf8_inputenc(text):
     """Make the preamble declare utf8 inputenc.
 
@@ -242,6 +291,10 @@ def main():
     for env in (r"figure", r"figure\*"):
         for block in re.findall(r"\\begin\{"+env+r"\}[\S\s]*?\\end\{"+env+r"\}", text):
             text = text.replace(block, '')
+    # Table floats are handled after \input/\include resolution too, since a
+    # sub-file can contribute its own. Their bodies are otherwise spoken aloud
+    # as pipes, coordinates and colour-macro names.
+    text = strip_tables(text)
     text = re.sub(r"\\citet\{.+?\}","",text)
     text = re.sub(r"\\citep\{.+?\}","",text)
     text = re.sub(r"\\cite\{.+?\}","",text)
