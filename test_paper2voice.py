@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from Paper2Voice import read_tex, write_tex
+from Paper2Voice import ensure_utf8_inputenc, read_tex, write_tex
 
 # A line exercising the characters that arXiv sources actually contain and
 # that the old cp437 read path destroyed: en-dash, umlaut, acute accents,
@@ -70,3 +70,50 @@ def test_write_tex_is_utf8_encoded(tmp_tex):
     write_tex(tmp_tex, UNICODE_LINE)
 
     assert open(tmp_tex, "rb").read().decode("utf-8") == UNICODE_LINE
+
+
+# latex2rtf 2.3.17 decides how to decode the source purely from the inputenc
+# declaration -- the -C command-line codepage does not affect it. A paper that
+# declares no inputenc (common for REVTeX sources, e.g. arXiv:2606.19482) is
+# therefore read as latin-1, splitting each UTF-8 character into junk glyphs.
+# Since write_tex always emits UTF-8, the preamble must say so.
+
+def test_adds_inputenc_when_absent():
+    src = "\\documentclass{article}\n\\begin{document}\nhi\n\\end{document}\n"
+
+    out = ensure_utf8_inputenc(src)
+
+    assert out.count("\\usepackage[utf8]{inputenc}") == 1
+    assert out.index("\\usepackage[utf8]{inputenc}") < out.index("\\begin{document}")
+
+
+def test_rewrites_non_utf8_inputenc():
+    """A latin-1 source is re-encoded to UTF-8, so its declaration must follow."""
+    src = ("\\documentclass{article}\n\\usepackage[latin1]{inputenc}\n"
+           "\\begin{document}\nhi\n\\end{document}\n")
+
+    out = ensure_utf8_inputenc(src)
+
+    assert "latin1" not in out
+    assert out.count("\\usepackage[utf8]{inputenc}") == 1
+
+
+def test_leaves_existing_utf8_inputenc_alone():
+    src = ("\\documentclass{article}\n\\usepackage[utf8]{inputenc}\n"
+           "\\begin{document}\nhi\n\\end{document}\n")
+
+    out = ensure_utf8_inputenc(src)
+
+    assert out.count("\\usepackage[utf8]{inputenc}") == 1
+
+
+def test_handles_multiline_documentclass_options():
+    """REVTeX sources open with `\\documentclass[%` and options across lines."""
+    src = ("\\documentclass[%\n aps,\n prl,\n]{revtex4-2}\n"
+           "\\begin{document}\nhi\n\\end{document}\n")
+
+    out = ensure_utf8_inputenc(src)
+
+    assert out.count("\\usepackage[utf8]{inputenc}") == 1
+    assert out.index("\\usepackage[utf8]{inputenc}") < out.index("\\begin{document}")
+    assert "revtex4-2" in out

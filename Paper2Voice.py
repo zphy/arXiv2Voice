@@ -45,6 +45,32 @@ def write_tex(path, text):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(text)
 
+def ensure_utf8_inputenc(text):
+    """Make the preamble declare utf8 inputenc.
+
+    latex2rtf 2.3.17 decides how to decode the source from the inputenc
+    declaration alone -- its -C codepage flag has no effect on this. Sources
+    that declare nothing (REVTeX papers typically don't) are read as latin-1,
+    which splits every multi-byte character into separate junk glyphs. Since
+    write_tex always emits UTF-8, the declaration has to agree.
+    """
+    utf8_pkg = '\\usepackage[utf8]{inputenc}'
+    # An existing declaration may name the *original* encoding (e.g. latin1),
+    # which is stale once read_tex/write_tex have normalised the bytes.
+    # replacement passed as a function: utf8_pkg contains backslashes that
+    # re.sub would otherwise try to interpret as group escapes.
+    for pattern in (r"\\usepackage\s*\[[^\]]*\]\s*\{inputenc\}",
+                    r"\\usepackage\s*\{inputenc\}"):
+        if re.search(pattern, text):
+            return re.sub(pattern, lambda m: utf8_pkg, text, count=1)
+    # Insert at the end of the preamble. This is robust to a multi-line
+    # \documentclass[...]{...} block, which naive after-the-classname
+    # insertion gets wrong for REVTeX's '\documentclass[%' style.
+    m = re.search(r"\\begin\s*\{document\}", text)
+    if m:
+        return text[:m.start()] + utf8_pkg + '\n' + text[m.start():]
+    return utf8_pkg + '\n' + text
+
 def main():
     # latex version
     arxiv_id = str(sys.argv[1]) # zeroth argument is the current filename
@@ -243,6 +269,7 @@ def main():
     text = re.sub(r"\\bibliographystyle\{[^}]*\}", "", text)
     text = re.sub(r"\\addbibresource\{[^}]*\}", "", text)
     text = re.sub(r"\\printbibliography", "", text)
+    text = ensure_utf8_inputenc(text)
     write_tex(fn+'.tex', text)
     os.system('latex2rtf '+fn+'.tex')
     # latex2rtf emits UTF-8 when fed UTF-8; fall back for older sources.
