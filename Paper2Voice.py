@@ -45,6 +45,17 @@ def write_tex(path, text):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(text)
 
+def unwrap_widetext(text):
+    """Remove \\begin{widetext}/\\end{widetext} while keeping their contents.
+
+    REVTeX uses widetext to make content span both columns, and papers commonly
+    wrap their entire supplementary section in it. latex2rtf 2.3.17 does not
+    support the environment and silently discards everything inside it, so
+    --si output lost the whole appendix. The environment carries no meaning
+    for speech, so unwrapping it is lossless.
+    """
+    return re.sub(r"\\(?:begin|end)\s*\{widetext\*?\}", "", text)
+
 def _match_brace_group(text, open_pos):
     """Return (content, end_index) for the {...} group starting at open_pos.
 
@@ -295,6 +306,7 @@ def main():
     # sub-file can contribute its own. Their bodies are otherwise spoken aloud
     # as pipes, coordinates and colour-macro names.
     text = strip_tables(text)
+    text = unwrap_widetext(text)
     text = re.sub(r"\\citet\{.+?\}","",text)
     text = re.sub(r"\\citep\{.+?\}","",text)
     text = re.sub(r"\\cite\{.+?\}","",text)

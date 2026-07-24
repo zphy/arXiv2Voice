@@ -14,6 +14,7 @@ from Paper2Voice import (
     ensure_utf8_inputenc,
     read_tex,
     strip_tables,
+    unwrap_widetext,
     write_tex,
 )
 
@@ -198,3 +199,41 @@ def test_multiple_tables_all_stripped():
     assert "First." in out and "Second." in out
     assert "Middle prose." in out
     assert out.count("myblue1") == 0
+
+
+# REVTeX wraps wide content -- often the entire supplementary section -- in
+# \begin{widetext}. latex2rtf 2.3.17 does not support it and discards the whole
+# block ("Sorry. Ignored \begin{widetext} ... \end{widetext}"). For
+# arXiv:2506.18061 that silently dropped 49k characters of appendix prose from
+# --si output, more than the rest of the paper combined. The environment is
+# purely a layout directive, so unwrapping it loses nothing.
+
+def test_unwraps_widetext_keeping_content():
+    src = ("Before. \\begin{widetext}\n\\section{Formal definitions}\n"
+           "The code is a stabilizer code.\n\\end{widetext}\n After.")
+
+    out = unwrap_widetext(src)
+
+    assert "widetext" not in out
+    assert "Formal definitions" in out
+    assert "The code is a stabilizer code." in out
+    assert "Before." in out and "After." in out
+
+
+def test_unwraps_every_widetext_block():
+    src = ("\\begin{widetext}\nFirst body.\n\\end{widetext}\n mid \n"
+           "\\begin{widetext}\nSecond body.\n\\end{widetext}")
+
+    out = unwrap_widetext(src)
+
+    assert "widetext" not in out
+    assert "First body." in out and "Second body." in out and "mid" in out
+
+
+def test_widetext_star_variant_also_unwrapped():
+    src = "\\begin{widetext*}\nBody text.\n\\end{widetext*}"
+
+    out = unwrap_widetext(src)
+
+    assert "widetext" not in out
+    assert "Body text." in out
