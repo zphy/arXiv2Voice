@@ -131,6 +131,43 @@ def ensure_utf8_inputenc(text):
         return text[:m.start()] + utf8_pkg + '\n' + text[m.start():]
     return utf8_pkg + '\n' + text
 
+def strip_bibliography(text):
+    """Remove every form of compiled bibliography from the source.
+
+    Runs unconditionally, independent of --si: a listener never wants a
+    reference list read aloud, appendix or not. Handles the two ways a
+    bibliography reaches the .tex source -- a literal \\begin{thebibliography}
+    ... \\end{thebibliography} block (BibTeX/natbib output, whether pasted in
+    directly or pulled in via \\input{name.bbl}) and the bare biblatex
+    commands (\\bibliography, \\bibliographystyle, \\addbibresource,
+    \\printbibliography). This does not by itself find a bibliography that
+    was never captured as either of those -- see strip_references_heading.
+    """
+    text = re.sub(r"\\begin\{thebibliography\}[\s\S]*?\\end\{thebibliography\}",
+                  "", text)
+    text = re.sub(r"\\bibliography\{[^}]*\}", "", text)
+    text = re.sub(r"\\bibliographystyle\{[^}]*\}", "", text)
+    text = re.sub(r"\\addbibresource\{[^}]*\}", "", text)
+    text = re.sub(r"\\printbibliography", "", text)
+    return text
+
+def strip_references_heading(text):
+    """Remove a manually-typed References/Bibliography section.
+
+    Some papers run no BibTeX machinery at all -- the reference list is just
+    prose under a \\section{References} heading, which strip_bibliography has
+    no command or environment to find. This drops everything from that
+    heading up to whichever comes first: the next \\section, \\appendix, or
+    \\end{document} -- so a real supplement that follows the reference list
+    (as in arXiv:2603.18318, where \\appendix actually precedes the
+    bibliography) is never eaten along with it.
+    """
+    pattern = re.compile(
+        r"\\section\*?\{\s*(?:References|Bibliography)\s*\}[\s\S]*?"
+        r"(?=\\section\*?\{|\\appendix\b|\\end\{document\})",
+        re.IGNORECASE)
+    return pattern.sub("", text)
+
 def main():
     # latex version
     arxiv_id = str(sys.argv[1]) # zeroth argument is the current filename
@@ -143,10 +180,11 @@ def main():
     # default options
     rate = '180'
     include_si = False
+    no_refs = False
 
     # get options
     try:
-        opts, args = getopt.getopt(sys.argv[2:],"hr:",["rate=","si"])
+        opts, args = getopt.getopt(sys.argv[2:],"hr:",["rate=","si","no-refs"])
     except getopt.GetoptError:
         print('python Paper2Voice.py <arXivID> -r <speech rate>')
         sys.exit(2)
@@ -155,11 +193,16 @@ def main():
         if opt == '-h':
             print('Usage: python Paper2Voice.py <arXivID> -r <speech rate>')
             print('-r: a reasonable speech rate is 160, default is 200.')
+            print('--si: include the supplementary material / appendix.')
+            print('--no-refs: also strip a manually-typed References section')
+            print('           that has no \\bibliography command to catch.')
             sys.exit()
         elif opt in ("-r", "--rate"):
             rate = arg
         elif opt in ("--si"):
             include_si = True
+        elif opt in ("--no-refs"):
+            no_refs = True
 
     # If the input ends in .zip, treat it as a local source archive rather
     # than an arXiv ID — extract in place and reuse the rest of the pipeline.
@@ -328,12 +371,11 @@ def main():
         text = re.sub(r"\\appendix[\s\S]*?(?=\\end\{document\})",
                       "", text)
     # always remove the bibliography itself
-    text = re.sub(r"\\begin\{thebibliography\}[\s\S]*?\\end\{thebibliography\}",
-                  "", text)
-    text = re.sub(r"\\bibliography\{[^}]*\}", "", text)
-    text = re.sub(r"\\bibliographystyle\{[^}]*\}", "", text)
-    text = re.sub(r"\\addbibresource\{[^}]*\}", "", text)
-    text = re.sub(r"\\printbibliography", "", text)
+    text = strip_bibliography(text)
+    if no_refs:
+        # Fallback for papers with no BibTeX machinery at all, where
+        # strip_bibliography has no command/environment to find.
+        text = strip_references_heading(text)
     text = ensure_utf8_inputenc(text)
     write_tex(fn+'.tex', text)
     os.system('latex2rtf '+fn+'.tex')

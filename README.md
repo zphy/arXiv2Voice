@@ -14,6 +14,10 @@ Run a command of the form "python Paper2Voice.py 1907.10066" on the command line
 
 -r, --rate: set rate of speech. Example: "python Paper2Voice.py 1907.10066 -r 200"
 --si: having this flag includes supplementary information
+--no-refs: also strips a manually-typed References/Bibliography section that
+  has no `\bibliography` command or `thebibliography` environment for the
+  normal (always-on) reference stripping to find. Combine with `--si` to get
+  main text + supplement with no references: "python Paper2Voice.py 1907.10066 --si --no-refs"
 
 ## Contributing
 
