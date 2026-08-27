@@ -13,6 +13,8 @@ import pytest
 from Paper2Voice import (
     ensure_utf8_inputenc,
     read_tex,
+    strip_bibliography,
+    strip_references_heading,
     strip_tables,
     unwrap_widetext,
     write_tex,
@@ -237,3 +239,101 @@ def test_widetext_star_variant_also_unwrapped():
 
     assert "widetext" not in out
     assert "Body text." in out
+
+
+# strip_bibliography extracts the bibliography-removal regexes that used to
+# live inline in main() -- pulled out so the always-on "never read citations"
+# behavior is directly testable instead of only exercised end-to-end.
+
+def test_strip_bibliography_removes_thebibliography_environment():
+    src = ("Body text.\n\\begin{thebibliography}{99}\n"
+           "\\bibitem{a} Author, Title, Journal (2020).\n"
+           "\\end{thebibliography}\n\\end{document}")
+
+    out = strip_bibliography(src)
+
+    assert "thebibliography" not in out
+    assert "Author, Title, Journal" not in out
+    assert "Body text." in out
+
+
+def test_strip_bibliography_removes_bibliography_command():
+    src = "Body text.\n\\bibliography{refs}\n\\end{document}"
+
+    out = strip_bibliography(src)
+
+    assert "\\bibliography" not in out
+    assert "Body text." in out
+
+
+def test_strip_bibliography_removes_biblatex_commands():
+    src = ("Body text.\n\\addbibresource{refs.bib}\n"
+           "\\printbibliography\n\\bibliographystyle{plain}\n\\end{document}")
+
+    out = strip_bibliography(src)
+
+    assert "addbibresource" not in out
+    assert "printbibliography" not in out
+    assert "bibliographystyle" not in out
+
+
+# strip_references_heading is the new fallback for papers that never run
+# BibTeX at all -- the reference list is just prose typed under a
+# \section{References} heading, which strip_bibliography has no way to catch
+# since there is no \bibliography command or thebibliography environment.
+# arXiv:2603.18318 shows the environment case is already handled correctly
+# (the thebibliography block sits inside \appendix and strip_bibliography
+# removes it in place, leaving the real appendix prose intact) -- this
+# function is strictly for papers with no BibTeX machinery at all.
+
+def test_strip_references_heading_removes_manual_reference_list():
+    src = ("Main text.\n\\section{References}\n"
+           "[1] Author, Title, Journal (2020).\n"
+           "[2] Other, Paper, Conf (2021).\n"
+           "\\end{document}")
+
+    out = strip_references_heading(src)
+
+    assert "References" not in out
+    assert "Author, Title, Journal" not in out
+    assert "Main text." in out
+
+
+def test_strip_references_heading_is_case_insensitive_and_handles_starred_section():
+    src = "Main text.\n\\section*{Bibliography}\n[1] Someone (2019).\n\\end{document}"
+
+    out = strip_references_heading(src)
+
+    assert "Someone" not in out
+    assert "Main text." in out
+
+
+def test_strip_references_heading_stops_at_next_section():
+    """A references list followed by more body sections must not eat them."""
+    src = ("Main text.\n\\section{References}\n[1] Someone (2019).\n"
+           "\\section{Acknowledgments}\nThanks to everyone.\n\\end{document}")
+
+    out = strip_references_heading(src)
+
+    assert "Someone" not in out
+    assert "Acknowledgments" in out and "Thanks to everyone." in out
+
+
+def test_strip_references_heading_preserves_appendix_that_follows():
+    """The real motivating case: refs before appendix must not eat the supplement."""
+    src = ("Main text.\n\\section{References}\n[1] Someone (2019).\n"
+           "\\appendix\n\\section{Extra derivation}\nDetailed proof here.\n"
+           "\\end{document}")
+
+    out = strip_references_heading(src)
+
+    assert "Someone" not in out
+    assert "Extra derivation" in out and "Detailed proof here." in out
+
+
+def test_strip_references_heading_no_op_when_absent():
+    src = "Main text.\n\\section{Conclusion}\nWe are done.\n\\end{document}"
+
+    out = strip_references_heading(src)
+
+    assert out == src
